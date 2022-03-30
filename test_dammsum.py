@@ -92,7 +92,7 @@ def test_corrections():
 	# Perform a random transposition
 	evil_seed = seed.copy()
 	while True: # require a nontrivial transposition
-		j = randrange(m+1)
+		j = randrange(m)
 		evil_seed[j], evil_seed[j+1] = seed[j+1], seed[j]
 		if evil_seed != seed:
 			break
