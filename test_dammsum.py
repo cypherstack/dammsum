@@ -87,7 +87,7 @@ def test_corrections():
 			break
 	seeds = d.correct(evil_seed)
 	assert seed in seeds # we should get the original seed...
-	assert len(seeds) == m + 1 # ... and other valid seeds
+	assert len(seeds) >= m + 1 # ... and other valid seeds
 
 	# Perform a random transposition
 	evil_seed = seed.copy()
