@@ -3,7 +3,6 @@ from typing import List
 import pytest
 from random import randrange
 
-TESTS = 1 # number of random trials to run
 k = 11 # word list contains 2**11 == 2048 words
 m = 12 # number of words in a seed (excluding checksum)
 words_path = 'words.txt' # relative path to word list
@@ -20,7 +19,6 @@ def get_words() -> List[str]:
 		raise IOError
 
 # Test that generated seeds are not obviously broken
-@pytest.mark.repeat(TESTS)
 def test_generate():
 	d = DammSum(k, m, get_words())
 	seed_1 = d.generate()
@@ -41,7 +39,6 @@ def test_generate():
 	assert seed_1 != seed_2
 
 # Test that substitutions are detected
-@pytest.mark.repeat(TESTS)
 def test_substitution_detect():
 	d = DammSum(k, m, get_words())
 	seed = d.generate()
@@ -58,7 +55,6 @@ def test_substitution_detect():
 			assert not d.verify(seed_)
 
 # Test that transpositions are detected
-@pytest.mark.repeat(TESTS)
 def test_transpositions():
 	d = DammSum(k, m, get_words())
 	seed = d.generate()
@@ -75,7 +71,6 @@ def test_transpositions():
 		assert not d.verify(seed_)
 
 # Test some corrections
-@pytest.mark.repeat(TESTS)
 def test_corrections():
 	d = DammSum(k, m, get_words())
 	seed = d.generate()
