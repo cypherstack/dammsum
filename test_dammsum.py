@@ -32,10 +32,10 @@ def test_generate():
 	assert d.verify(seed_1)
 	assert d.verify(seed_2)
 
-	# Seeds should contain at least some unique values
+	# Seeds should contain at least some unique values with high probability
 	assert len(set(seed_1)) > 1
 
-	# Seeds should be unique
+	# Seeds should be unique with high probability
 	assert seed_1 != seed_2
 
 # Test that substitutions are detected
@@ -43,7 +43,7 @@ def test_substitution_detect():
 	d = DammSum(k, m, get_words())
 	seed = d.generate()
 
-	# Check all substitutions
+	# Check all substitutions in all positions
 	for j in range(m+1):
 		seed_ = seed.copy()
 		for i in range(1 << k):
@@ -79,23 +79,30 @@ def test_corrections():
 	with pytest.raises(ValueError):
 		d.correct(seed)
 
-	# Perform a random substitution
-	evil_seed = seed.copy()
-	while True: # require a nontrivial substitution
-		evil_seed[randrange(0, m)] = d.words[randrange(0, 1 << k)]
-		if evil_seed != seed:
-			break
-	seeds = d.correct(evil_seed)
-	assert seed in seeds # we should get the original seed...
-	assert len(seeds) >= m + 1 # ... and other valid seeds
+	# Perform a random substitution in all positions
+	for j in range(m+1):
+		evil_seed = seed.copy()
 
-	# Perform a random transposition
-	evil_seed = seed.copy()
-	while True: # require a nontrivial transposition
-		j = randrange(m)
+		# If the subtitution is trivial, ignore
+		evil_seed[j] = d.words[randrange(0, 1 << k)]
+		if evil_seed == seed:
+			continue
+
+		# Check the correction
+		seeds = d.correct(evil_seed)
+		assert seed in seeds # we should get the original seed...
+		assert len(seeds) >= m + 1 # ... and other valid seeds
+
+	# Perform all transpositions
+	for j in range(m):
+		evil_seed = seed.copy()
+
+		# If the transposition is trivial, ignore
 		evil_seed[j], evil_seed[j+1] = seed[j+1], seed[j]
-		if evil_seed != seed:
-			break
-	seeds = d.correct(evil_seed)
-	assert seed in seeds # we should get the original seed...
-	assert len(seeds) > 0 # ... and may get other valid seeds
+		if evil_seed == seed:
+			continue
+
+		# Check the correction
+		seeds = d.correct(evil_seed)
+		assert seed in seeds # we should get the original seed...
+		assert len(seeds) > 0 # ... and may get other valid seeds
