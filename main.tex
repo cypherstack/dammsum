@@ -1,0 +1,210 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb,amsthm}
+
+\theoremstyle{plain}
+\newtheorem{result}{Result}[section]
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\newcommand{\GF}{\operatorname{GF}}
+
+\title{DammSum: efficient mnemonic seeds from quasigroup checksums}
+\author{Cypher Stack}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This technical note describes DammSum, a method for producing digital asset mnemonic seed checksums that are robust against all single substitutions and transpositions.
+The method uses an optimization of the Damm algorithm to produce and validate checksums efficiently, in particular without requiring elementwise construction of a required quasigroup and its associated Cayley table.
+\end{abstract}
+
+This document describes technical information relevant to mnemonic seed generation in digital assets.
+It has not been independently reviewed, and may contain errors.
+The author asserts no warranty and disclaims liability for its use.
+The author further expresses no endorsement of Slaz Labs or its associated entities.
+
+
+\section{Introduction}
+
+Many digital asset projects and protocols support the use of mnemonic seeds to generate keys in common client applications.
+At its core, a mnemonic seed is simply a mapping between a given list of words and a corresponding bit string; depending on the method used, this bit string is used to produce keys, either directly or using a pseudorandom function like a hash function or key derivation function.
+
+Mnemonic seeds are useful precisely because they are designed for use by humans, as they can be easily written down, spoken by voice, typed into wallet software, or otherwise securely stored using physical media.
+However, this poses challenges:
+\begin{itemize}
+	\item What happens if the user communicates the seed over a noisy channel, and one or more words are substituted with others?
+	\item What happens if the user reads the seed incorrectly, and one or more words are transposed?
+	\item What happens if the user stores the seed incorrectly, and it is truncated when later read?
+\end{itemize}
+
+One mitigation to these and related challenges is to introduce a checksum to the seed phrase.
+When generating a seed, client software first uses suitable randomness to produce the bitstring intended for use in key generation.
+It then maps the bitstring to the mnemonic seed using a given word list.
+Finally, it produces the checksum, which (depending on the method used) is typically prepended or appended to the seed.
+When later communicating or using the seed, client software ensures that the checksum is valid for the given seed.
+
+When considering designs for checksums, we consider two important concepts from coding theory relating to errors: detection and correction.
+A design that detects errors is intended to alert the user that some particular type of transmission error occurred, and that the seed is invalid.
+A design that corrects errors can do more, identifying the (ideally unique) valid seed to which the errors were applied.
+Different constructions provide varying degrees of error detection and correction.
+
+In this technical note, we describe a checksum design called DammSum that has the following properties:
+\begin{itemize}
+	\item The checksum design is compatible with the common Electrum word set used in many digital asset projects.
+	\item The checksum is a single word, regardless of the length of the seed.
+	\item All erasure errors are detected.
+	\item All single substitution errors are detected.
+	\item All single adjacent transpositions, including transposition of the checksum itself, are detected.
+	\item Computation and verification of a checksum is efficient, with no lookup tables or complex computations required.
+\end{itemize}
+
+While error detection is useful, this design does not permit unique correction of substitution, transposition, or erasure errors.
+
+
+\section{Mathematical background}
+
+In a dissertation \cite{damm_thesis} and related papers \cite{damm2000,damm2007}, Damm notes the applicability of group structures to check digits, in particular observing that while the use of a group operation on antisymmetric permutation compositions can always detect single substitutions, it is limited in detection of adjacent transpositions based on the order of the group.
+It is shown that replacement of the general group structure with at least a weakly totally antisymmetric quasigroup removes this limitation, such that a checksum construction based on this structure reliably and provably detects single substitutions and adjacent transpositions.
+
+This observation then reduces the problem of checksum design to construction of weakly totally antisymmetric quasigroups of the required order, as well as optimizations for evaluation of the quasigroup operation on each digit of the seed.
+
+For completeness, we define quasigroups, the weakly totally antisymmetric and totally antisymmetric properties, and the Damm algorithm, but refer the reader to \cite{damm_thesis,damm2000,damm2007} for a more complete treatment.
+
+
+\subsection{Quasigroups and asymmetry}
+
+\begin{definition}
+	A \textit{quasigroup} $(G,\star)$ is a set $G \neq \emptyset$ closed under a binary operation $\star$ such that for all $a,b \in G$ there exist unique $x,y \in G$ such that $a \star x = b$ and $y \star a = b$.
+\end{definition}
+
+For the Damm algorithm, we will consider finite quasigroups, where the definition implies the usual cancellation laws.
+
+\begin{definition}
+	A quasigroup $(G,\star)$ is \textit{weakly totally antisymmetric} if for all $c,x,y \in G$, if $(c \star x) \star y = (c \star y) \star x$, then $x = y$.
+\end{definition}
+
+\begin{definition}
+	A quasigroup $(G,\star)$ is \textit{totally antisymmetric} if it is weakly totally antisymmetric and $x \star y = y \star x$ implies $x = y$ for all $x,y \in G$.
+\end{definition}
+
+The paper \cite{damm2007} proves that there exist totally antisymmetric quasigroups of order $n$ for all $n \not\in \{2,6\}$, and that there exists a weakly totally antisymmetric quasigroup of order $n$ if and only if there exists a totally antisymmetric quasigroup of order $n$.
+
+For the specific DammSum construction we describe later, the following additional results from \cite{damm2007} will be useful.
+
+\begin{result}
+	\label{result:gf_is_ta}
+	Let $k > 1$ be an integer, and let $G = \GF(2^k)$ be the Galois field with $2^k$ elements.
+	Let $a \in G$ such that $a \not\in \{0,1\}$, and define the binary operation $\star$ such that $x \star y = ax + y$ for all $x,y \in G$.
+	Then $(G,\star)$ is a totally antisymmetric quasigroup.
+\end{result}
+
+\begin{result}
+	\label{result:permute_wta}
+	Let $(G,\star)$ be a totally antisymmetric quasigroup, and let $\beta: G \to G$ be a permutation of the elements of $G$.
+	Define a binary operation $\star'$ on $G$ such that for all $x,y \in G$, we have $x \star' y = x \star \beta(y)$.
+	Then $(G,\star')$ is a weakly totally antisymmetric quasigroup.
+\end{result}
+
+We now prove that a particular construction over a Galois field is a weakly totally antisymmetric quasigroup.
+
+\begin{result}
+	\label{result:wta}
+	Let $k > 1$ be an integer, and let $G = \GF(2^k)$ be the Galois field with $2^k$ elements.
+	Define a binary operation $\star'$ on $G$ such that for $x,y \in G$ we have $x \star' y = 2 \cdot (x + y)$.
+	Then $(G,\star')$ is a weakly totally antisymmetric quasigroup.
+\end{result}
+
+\begin{proof}
+	Define a binary operation $\star$ on $G = \GF(2^k)$ such that $x \star y = 2 \cdot x + y$ for all $x,y \in G$; then by Result \ref{result:gf_is_ta}, $(G,\star)$ is a totally antisymmetric quasigroup.
+
+	Let $\beta: G \to G$ be a permutation on $G$ defined such that $\beta(x) = 2 \cdot x$ for all $x \in G$.
+	Then for all $x,y \in G$ we have
+	\begin{alignat*}{1}
+		x \star' y &= 2 \cdot (x + y) \\
+		&= 2 \cdot x + 2 \cdot y \\
+		&= 2 \cdot x + \beta(y) \\
+		&= x \star \beta(y)
+	\end{alignat*}
+	Result \ref{result:permute_wta} implies that $(G,\star')$ is weakly totally antisymmetric.
+\end{proof}
+Note that by construction, $x \star' x = 0$ for all $x \in G$.
+
+\subsection{Damm algorithm}
+
+We now define the Damm algorithm, which produces a checksum that provably detects single substitutions and adjacent transpositions.
+The algorithm requires a finite weakly totally antisymmetric quasigroup $(G,\star)$ of order $n$, where for notational convenience we denote $G = \{0,1,\ldots,n-1\}$.
+For optimization purposes, it further requires that $x \star x = 0$ for all $x \in G$ (the element $0$ is arbitrary and denoted as such for convenience); this is equivalent to asserting that the diagonal of the Cayley table for $G$ contain only this element.
+
+Let $w = d_m | d_{m-1} | \cdots | d_1$ be an $m$-digit word formed by concatenating the digits $\{d_i\}_{i=1}^m$, where $d_i \in G$ for all $i \in [1,m]$ and $m > 0$.
+Define the checksum of $w$ to be the digit $d_0$ such that the equation
+$$(\cdots((d_m \star d_{m-1}) \star d_{m-2}) \star \cdots \star d_1) \star d_0 = 0$$
+holds.
+Observe that because we require $x \star x = 0$ for all $x \in G$, we may simplify the above equation by defining 
+$$d_0 = (\cdots((d_m \star d_{m-1}) \star d_{m-2}) \star \cdots \star d_1)$$
+and using the former equation as verification of the checksum $d_0$.
+
+Because $(G,\star)$ is a weakly totally antisymmetric quasigroup, any single substitution or transposition is detected.
+
+
+\section{DammSum}
+
+We now describe the construction of DammSum, a method for efficiently producing Damm-based checksums for digital asset mnemonic seed phrases.
+
+Let $k = 11$, so $2^k = 2^{11} = 2048$.
+Let $m = 12$.
+Let $G = \GF(2^k)$, and define the binary operation $\star'$ on $G$ such that $x \star' y = 2 \cdot (x + y)$ for all $x,y \in G$.
+
+Generation of a DammSum seed proceeds as follows:
+\begin{enumerate}
+	\item For $i \in [1,m]$, sample a digit $d_i \in G$ uniformly at random, and let $w = d_m | d_{m-1} | \cdots | d_1$.
+	\item Compute $d_0 = (\cdots((d_m \star' d_{m-1}) \star' d_{m-2}) \star' \cdots \star' d_1)$.
+	\item For each $i \in [0,m]$, let $D_i$ be the English word from the Electrum word list corresponding to $d_i$.
+	\item Output the seed $D_m | D_{m-1} | \cdots | D_1 | D_0$.
+\end{enumerate}
+
+To verify a DammSum seed has the correct checksum:
+\begin{enumerate}
+	\item For each $i \in [0,m]$, let $d_i$ be the element of $\GF(2^k)$ corresponding to $D_i$.
+	\item If the equation
+	$$(\cdots((d_m \star' d_{m-1}) \star' d_{m-2}) \star' \cdots \star' d_1) \star' d_0 = 0$$
+	holds, then verification succeeds; otherwise, it fails.
+\end{enumerate}
+
+The above construction meets the requirements of the Damm algorithm by Result \ref{result:wta}.
+Further, a seed generated in this manner has $\log_2\left((2^{11})^{12}\right) = 132$ bits of entropy.
+
+
+\section{Implementation}
+
+We can implement DammSum efficiently, and note here how to do so.
+
+Consider a representation of $\GF(2^k)$ as the set of binary-valued polynomials of degree at most $k-1$, reduced by an arbitrary monic irreducible binary-valued polynomial $f$ of degree exactly $k$.
+While all choices of $f$ are valid, for efficiency we seek a polynomial of low weight.
+For our purpose, we use the table in \cite{hp}, which lists $f(x) = x^{11} + x^2 + 1$.
+
+In order to compute the checksum for a seed, we must compute quantities of the form $2 \cdot (x + y)$ in $\GF(2^k)$.
+The sum $x + y$ is simply the bitwise \texttt{XOR} of the binary representations of $x$ and $y$, which is trivial to compute.
+
+In order to compute the multiplication of the sum $x + y$ by $2$, it suffices to perform a bitwise left shift of $x + y$ and, if the result has the $k$ bit set, \texttt{XOR} this result with the binary representation of $f(2) = 2053$.
+
+We then iterate this process over each digit in the seed to produce the checksum.
+
+
+\section{Observations}
+
+We note that while computation and verification of DammSum checksums is extremely efficient and can detect single substitution and transposition errors, it cannot uniquely correct them in all cases.
+
+In order to provide robust and flexible error correction, a design based on constructions like Bose-Chaudhuri-Hocquenghem codes \cite{hocquenghem,bose} is recommended; however, such constructions are generally more complex and marginally less efficient.
+
+
+\bibliographystyle{plain}
+\bibliography{main}
+
+
+\end{document}
