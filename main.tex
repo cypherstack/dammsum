@@ -7,7 +7,8 @@
 \newtheorem{result}{Result}[section]
 
 \theoremstyle{definition}
-\newtheorem{definition}{Definition}[section]
+\newtheorem{remark}[result]{Remark}
+\newtheorem{definition}[result]{Definition}
 
 \newcommand{\GF}{\operatorname{GF}}
 
@@ -83,6 +84,11 @@ For completeness, we define quasigroups, the weakly totally antisymmetric and to
 	A \textit{quasigroup} $(G,\star)$ is a set $G \neq \emptyset$ closed under a binary operation $\star$ such that for all $a,b \in G$ there exist unique $x,y \in G$ such that $a \star x = b$ and $y \star a = b$.
 \end{definition}
 
+\begin{remark}
+	Throughout this note, we sometimes drop explicit parentheses for clarity of notation.
+	In such cases, assume that quasigroup operations are read from left to right where unambiguous; that is, the notation $x \star y \star z$ should be interpreted as $(x \star y) \star z$.
+\end{remark}
+
 For the Damm algorithm, we will consider finite quasigroups, where the definition implies the usual cancellation laws.
 
 \begin{definition}
@@ -99,15 +105,15 @@ For the specific DammSum construction we describe later, the following additiona
 
 \begin{result}
 	\label{result:gf_is_ta}
-	Let $k > 1$ be an integer, and let $G = \GF(2^k)$ be the Galois field with $2^k$ elements.
-	Let $a \in G$ such that $a \not\in \{0,1\}$, and define the binary operation $\star$ such that $x \star y = ax + y$ for all $x,y \in G$.
+	Let $k > 1$ be an integer, and let $G \equiv \GF(2^k)$ be the Galois field with $2^k$ elements.
+	Let $a \in G$ such that $a \not\in \{0,1\}$, and define the binary operation $\star$ such that $x \star y \equiv ax + y$ for all $x,y \in G$.
 	Then $(G,\star)$ is a totally antisymmetric quasigroup.
 \end{result}
 
 \begin{result}
 	\label{result:permute_wta}
 	Let $(G,\star)$ be a totally antisymmetric quasigroup, and let $\beta: G \to G$ be a permutation of the elements of $G$.
-	Define a binary operation $\star'$ on $G$ such that for all $x,y \in G$, we have $x \star' y = x \star \beta(y)$.
+	Define a binary operation $\star'$ on $G$ such that for all $x,y \in G$, we have $x \star' y \equiv x \star \beta(y)$.
 	Then $(G,\star')$ is a weakly totally antisymmetric quasigroup.
 \end{result}
 
@@ -115,13 +121,13 @@ We now prove that a particular construction over a Galois field is a weakly tota
 
 \begin{result}
 	\label{result:wta}
-	Let $k > 1$ be an integer, and let $G = \GF(2^k)$ be the Galois field with $2^k$ elements.
-	Define a binary operation $\star'$ on $G$ such that for $x,y \in G$ we have $x \star' y = 2 \cdot (x + y)$.
+	Let $k > 1$ be an integer, and let $G \equiv \GF(2^k)$ be the Galois field with $2^k$ elements.
+	Define a binary operation $\star'$ on $G$ such that for $x,y \in G$ we have $x \star' y \equiv 2 \cdot (x + y)$.
 	Then $(G,\star')$ is a weakly totally antisymmetric quasigroup.
 \end{result}
 
 \begin{proof}
-	Define a binary operation $\star$ on $G = \GF(2^k)$ such that $x \star y = 2 \cdot x + y$ for all $x,y \in G$; then by Result \ref{result:gf_is_ta}, $(G,\star)$ is a totally antisymmetric quasigroup.
+	Define a binary operation $\star$ on $G = \GF(2^k)$ such that $x \star y \equiv 2 \cdot x + y$ for all $x,y \in G$; then by Result \ref{result:gf_is_ta}, $(G,\star)$ is a totally antisymmetric quasigroup.
 
 	Let $\beta: G \to G$ be a permutation on $G$ defined such that $\beta(x) = 2 \cdot x$ for all $x \in G$.
 	Then for all $x,y \in G$ we have
@@ -143,27 +149,92 @@ For optimization purposes, it further requires that $x \star x = 0$ for all $x \
 
 Let $w = d_m | d_{m-1} | \cdots | d_1$ be an $m$-digit word formed by concatenating the digits $\{d_i\}_{i=1}^m$, where $d_i \in G$ for all $i \in [1,m]$ and $m > 0$.
 Define the checksum of $w$ to be the digit $d_0$ such that the equation
-$$(\cdots((d_m \star d_{m-1}) \star d_{m-2}) \star \cdots \star d_1) \star d_0 = 0$$
+\[ 0 \star d_m \star d_{m-1} \star \cdots \star d_0 = 0 \]
 holds.
 Observe that because we require $x \star x = 0$ for all $x \in G$, we may simplify the above equation by defining 
-$$d_0 = (\cdots((d_m \star d_{m-1}) \star d_{m-2}) \star \cdots \star d_1)$$
+\[ d_0 \equiv 0 \star d_m \star d_{m-1} \star \cdots \star d_1 \]
 and using the former equation as verification of the checksum $d_0$.
 
-Because $(G,\star)$ is a weakly totally antisymmetric quasigroup, any single substitution or transposition is detected.
+We now show that the Damm algorithm detects any single nontrivial substitution.
+\begin{result}[Substitution]
+	\label{result:substitution}
+	Fix $m \geq 0$ and let $(d_i)_{i=0}^m$ be a vector with elements in a finite weakly totally antisymmetric quasigroup $(G, \star)$.
+	Let $j \in [0, m]$ be an arbitrary index, and let $d_j' \in (G, \star)$.
+	If
+	\[ 0 \star d_m \star \cdots d_j' \star \cdots \star d_0 = 0 \star d_m \star \cdots \star d_j \star \cdots \star d_0 \]
+	then $d_j' = d_j$.
+\end{result}
 
+\begin{proof}
+	We proceed by induction on $m \geq 0$.
+
+	For the case where $m = 0$, suppose that $0 \star d_0 = 0 \star d_0'$.
+	Because $G$ is a quasigroup, cancellation immediately gives that $d_0 = d_0'$.
+
+	Now suppose the result holds for some $m > 0$, and suppose that
+	\[ 0 \star d_{m+1} \star \cdots d_j' \star \cdots \star d_0 = 0 \star d_{m+1} \star \cdots \star d_j \star \cdots \star d_0 \]
+	holds.
+	If $j = 0$, then define
+	\[ d \equiv 0 \star d_{m+1} \star \cdots \star d_1 \]
+	and note that we have $d \star d_0 = d \star d_0'$.
+	Cancellation again gives that $d_0 = d_0'$.
+	If instead $j > 0$, define
+	\[ d \equiv 0 \star d_{m+1} \star \cdots d_j \star \cdots \star d_1 \]
+	and
+	\[ d' \equiv 0 \star d_{m+1} \star \cdots d_j' \star \cdots \star d_1 \]
+	and note that we have $d \star d_0 = d' \star d_0$.
+	Cancellation here gives that $d = d'$, so (after reindexing) by induction we must have $d_j = d_j'$.
+
+	Therefore the result holds for all $m$.
+\end{proof}
+Observe that this result holds in the case $m = 0$, which in our application would correspond to an invalid case where no digits are provided.
+This is only to simplify the base case of the induction argument, but holds for the allowed range $m > 0$.
+
+We now show that the Damm algorithm detects any single nontrivial transposition.
+\begin{result}[Transposition]
+	\label{result:transposition}
+	Fix $m > 0$ and let $(d_i)_{i=0}^m$ be a vector with elements in a finite weakly totally antisymmetric quasigroup $(G, \star)$.
+	Let $j \in [0, m)$ be an arbitrary index.
+	If
+	\[ 0 \star d_m \star \cdots \star d_{j+1} \star d_j \star \cdots \star d_0 = 0 \star d_m \star \cdots \star d_j \star d_{j+1} \star \cdots \star d_0 \]
+	then $d_{j+1} = d_j$.
+\end{result}
+
+\begin{proof}
+	We proceed by induction on $m \geq 1$.
+
+	For the case where $m = 1$, suppose that $(0 \star d_1) \star d_0 = (0 \star d_0) \star d_1$.
+	Because $G$ is weakly totally asymmetric, it immediately follows that $d_1 = d_0$.
+
+	Now suppose the result holds for some $m > 1$, and suppose that 
+	\[ 0 \star d_{m+1} \star \cdots \star d_{j+1} \star d_j \star \cdots \star d_0 = 0 \star d_{m+1} \star \cdots \star d_j \star d_{j+1} \star \cdots \star d_0 \]
+	holds.
+	If $j = 0$, then define
+	\[ c \equiv 0 \star d_{m+1} \star \cdots \star d_2 \]
+	and note that we have $(c \star d_1) \star d_0 = (c \star d_0) \star d_1$.
+	It again follows that $d_1 = d_0$.
+	If instead $j > 0$, define
+	\[ d \equiv 0 \star d_{m+1} \star \cdots \star d_{j+1} \star d_j \star \cdots d_1 \]
+	and
+	\[ d' \equiv 0 \star d_{m+1} \star \cdots \star d_j \star d_{j+1} \star \cdots d_1 \]
+	and note that we have $d \star d_0 = d' \star d_0$.
+	Because $G$ is a quasigroup, cancellation here gives that $d = d'$, so (after reindexing) by induction we must have that $d_{j+1} = d_j$.
+
+	Therefore the result holds for all $m$.
+\end{proof}
 
 \section{DammSum}
 
 We now describe the construction of DammSum, a method for efficiently producing Damm-based checksums for digital asset mnemonic seed phrases.
 
-Let $k = 11$, so $2^k = 2^{11} = 2048$.
-Let $m = 12$.
-Let $G = \GF(2^k)$, and define the binary operation $\star'$ on $G$ such that $x \star' y = 2 \cdot (x + y)$ for all $x,y \in G$.
+Let $k \equiv 11$, so $2^k = 2^{11} = 2048$.
+Let $m \equiv 12$.
+Let $G \equiv \GF(2^k)$, and define the binary operation $\star'$ on $G$ such that $x \star' y \equiv 2 \cdot (x + y)$ for all $x,y \in G$.
 
 Generation of a DammSum seed proceeds as follows:
 \begin{enumerate}
 	\item For $i \in [1,m]$, sample a digit $d_i \in G$ uniformly at random, and let $w = d_m | d_{m-1} | \cdots | d_1$.
-	\item Compute $d_0 = (\cdots((d_m \star' d_{m-1}) \star' d_{m-2}) \star' \cdots \star' d_1)$.
+	\item Compute $d_0 \equiv 0 \star' d_m \star' d_{m-1} \star' \cdots \star' d_1$.
 	\item For each $i \in [0,m]$, let $D_i$ be the English word from the Electrum word list corresponding to $d_i$.
 	\item Output the seed $D_m | D_{m-1} | \cdots | D_1 | D_0$.
 \end{enumerate}
@@ -172,7 +243,7 @@ To verify a DammSum seed has the correct checksum:
 \begin{enumerate}
 	\item For each $i \in [0,m]$, let $d_i$ be the element of $\GF(2^k)$ corresponding to $D_i$.
 	\item If the equation
-	$$(\cdots((d_m \star' d_{m-1}) \star' d_{m-2}) \star' \cdots \star' d_1) \star' d_0 = 0$$
+	\[ 0 \star' d_m \star' d_{m-1} \star' \cdots \star' d_0 = 0 \]
 	holds, then verification succeeds; otherwise, it fails.
 \end{enumerate}
 
